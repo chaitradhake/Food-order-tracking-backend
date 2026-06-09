@@ -1,25 +1,37 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const jwt = require('jsonwebtoken');
 const Order = require('./models/Order');
+const authenticateUser = require('./middleware/userAuth');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = 'super-secret-key-for-admin-panel'; // hardcoded for simplicity
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-admin-panel';
 let isAutoUpdateEnabled = true;
 
 app.use(cors());
 app.use(express.json());
 
-// MongoDB in-memory setup
+// User authentication routes
+app.use('/api/auth', authRoutes);
+
+// MongoDB setup
 let mongoServer;
 const connectDB = async () => {
-  mongoServer = await MongoMemoryServer.create();
-  const uri = mongoServer.getUri();
-  await mongoose.connect(uri);
-  console.log('Connected to In-Memory MongoDB');
+  const uri = process.env.MONGO_URI;
+  if (uri) {
+    await mongoose.connect(uri);
+    console.log('Connected to MongoDB via MONGO_URI');
+  } else {
+    mongoServer = await MongoMemoryServer.create();
+    const memoryUri = mongoServer.getUri();
+    await mongoose.connect(memoryUri);
+    console.log('Connected to In-Memory MongoDB');
+  }
 };
 
 connectDB().catch(err => console.error(err));
@@ -133,8 +145,8 @@ app.post('/api/login', (req, res) => {
   }
 });
 
-// 2. Create Order (Validated)
-app.post('/api/orders', validateOrder, async (req, res, next) => {
+// 2. Create Order (Validated and Authenticated)
+app.post('/api/orders', authenticateUser, validateOrder, async (req, res, next) => {
   try {
     const { customerName, items, totalAmount } = req.body;
     const newOrder = new Order({ customerName, items, totalAmount });
