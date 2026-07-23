@@ -34,7 +34,7 @@ router.post('/register', async (req, res, next) => {
     // Sign JWT token
     const secret = process.env.JWT_SECRET || 'super-secret-key-for-admin-panel';
     const token = jwt.sign(
-      { id: savedUser._id, name: savedUser.name, email: savedUser.email },
+      { id: savedUser._id, name: savedUser.name, email: savedUser.email, role: 'customer' },
       secret,
       { expiresIn: '7d' }
     );
@@ -76,7 +76,7 @@ router.post('/login', async (req, res, next) => {
     // Sign JWT token
     const secret = process.env.JWT_SECRET || 'super-secret-key-for-admin-panel';
     const token = jwt.sign(
-      { id: user._id, name: user.name, email: user.email },
+      { id: user._id, name: user.name, email: user.email, role: 'customer' },
       secret,
       { expiresIn: '7d' }
     );

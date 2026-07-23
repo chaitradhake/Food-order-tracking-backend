@@ -15,6 +15,9 @@ const authenticateUser = (req, res, next) => {
     if (err) {
       return res.status(403).json({ message: 'Invalid or expired token.' });
     }
+    if (!decoded || decoded.role !== 'customer') {
+      return res.status(403).json({ message: 'Access denied. Customer access required.' });
+    }
     req.user = decoded;
     next();
   });

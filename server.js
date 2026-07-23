@@ -45,6 +45,9 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.sendStatus(403);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
     req.user = user;
     next();
   });
@@ -69,7 +72,7 @@ app.post('/api/settings/auto-update', authenticateToken, (req, res) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   if (username === 'admin' && password === 'password') {
-    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ username, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' });
     res.json({ token });
   } else {
     res.status(401).json({ message: 'Invalid credentials' });
@@ -139,7 +142,7 @@ app.post('/api/settings/auto-update', authenticateToken, (req, res) => {
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   if (username === 'admin' && password === 'password') {
-    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ username, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' });
     res.json({ token });
   } else {
     res.status(401).json({ message: 'Invalid credentials' });
