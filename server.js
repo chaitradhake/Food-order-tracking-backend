@@ -138,32 +138,6 @@ const validateOrder = (req, res, next) => {
   next();
 };
 
-// API Routes
-
-// Settings Route
-app.get('/api/settings/auto-update', (req, res) => {
-  res.json({ enabled: isAutoUpdateEnabled });
-});
-
-app.post('/api/settings/auto-update', authenticateToken, (req, res) => {
-  if (typeof req.body.enabled === 'boolean') {
-    isAutoUpdateEnabled = req.body.enabled;
-  }
-  res.json({ enabled: isAutoUpdateEnabled });
-});
-
-// 1. Admin Login
-// Returns a JWT token if credentials are 'admin'/'password'
-app.post('/api/login', (req, res) => {
-  const { username, password } = req.body;
-  if (username === 'admin' && password === 'password') {
-    const token = jwt.sign({ username, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
-  } else {
-    res.status(401).json({ message: 'Invalid credentials' });
-  }
-});
-
 // 2. Create Order (Validated and Authenticated)
 app.post('/api/orders', authenticateUser, validateOrder, async (req, res, next) => {
   try {
