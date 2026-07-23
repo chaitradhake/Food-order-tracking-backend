@@ -6,6 +6,8 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const jwt = require('jsonwebtoken');
 const Order = require('./models/Order');
+const User = require('./models/User');
+const bcrypt = require('bcryptjs');
 const authenticateUser = require('./middleware/userAuth');
 const authRoutes = require('./routes/auth');
 
@@ -83,14 +85,30 @@ app.post('/api/settings/auto-update', authenticateToken, (req, res) => {
 });
 
 // 1. Admin Login
-// Returns a JWT token if credentials are 'admin'/'password'
-app.post('/api/login', (req, res) => {
-  const { username, password } = req.body;
-  if (username === 'admin' && password === 'password') {
-    const token = jwt.sign({ username, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' });
+// Returns a JWT token if credentials are valid in database and role is admin
+app.post('/api/login', async (req, res, next) => {
+  try {
+    const { email, username, password } = req.body;
+    const loginEmail = email || username;
+
+    if (!loginEmail || !password) {
+      return res.status(400).json({ message: 'Please provide email and password' });
+    }
+
+    const user = await User.findOne({ email: loginEmail.toLowerCase(), role: 'admin' });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ username: user.name, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' });
     res.json({ token });
-  } else {
-    res.status(401).json({ message: 'Invalid credentials' });
+  } catch (error) {
+    next(error);
   }
 });
 
