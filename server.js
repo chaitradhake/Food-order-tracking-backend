@@ -53,6 +53,21 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+const authenticateUserOrAdmin = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token == null) return res.sendStatus(401);
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    if (!user || (user.role !== 'admin' && user.role !== 'customer')) {
+      return res.status(403).json({ error: 'Access denied. Valid role required.' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
 // API Routes
 
 // Settings Route
@@ -153,7 +168,12 @@ app.post('/api/login', (req, res) => {
 app.post('/api/orders', authenticateUser, validateOrder, async (req, res, next) => {
   try {
     const { customerName, items, totalAmount } = req.body;
-    const newOrder = new Order({ customerName, items, totalAmount });
+    const newOrder = new Order({
+      customerName,
+      items,
+      totalAmount,
+      userId: req.user.id
+    });
     const savedOrder = await newOrder.save();
     res.status(201).json(savedOrder);
   } catch (err) {
@@ -161,10 +181,14 @@ app.post('/api/orders', authenticateUser, validateOrder, async (req, res, next) 
   }
 });
 
-// 3. Fetch All Orders
-app.get('/api/orders', async (req, res, next) => {
+// 3. Fetch Orders (Authenticated)
+app.get('/api/orders', authenticateUserOrAdmin, async (req, res, next) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
+    let filter = {};
+    if (req.user.role === 'customer') {
+      filter = { userId: req.user.id };
+    }
+    const orders = await Order.find(filter).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
     next(err);
