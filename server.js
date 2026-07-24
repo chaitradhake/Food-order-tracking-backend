@@ -10,6 +10,7 @@ const User = require('./models/User');
 const bcrypt = require('bcryptjs');
 const authenticateUser = require('./middleware/userAuth');
 const authRoutes = require('./routes/auth');
+const deliveryRoutes = require('./routes/delivery');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,6 +22,7 @@ app.use(express.json());
 
 // User authentication routes
 app.use('/api/auth', authRoutes);
+app.use('/api/delivery', deliveryRoutes);
 
 // MongoDB setup
 let mongoServer;
@@ -211,15 +213,21 @@ app.get('/api/orders/:id', async (req, res, next) => {
 // 5. Update Order Status (Protected Route)
 app.put('/api/orders/:id/status', authenticateToken, async (req, res, next) => {
   try {
-    const { status } = req.body;
+    const { status, deliveryPartnerId } = req.body;
     if (!['Pending', 'Preparing', 'Out for Delivery', 'Delivered'].includes(status)) {
       const error = new Error('Invalid status');
       error.status = 400;
       return next(error);
     }
+
+    const updateData = { status };
+    if (status === 'Out for Delivery' && req.body.hasOwnProperty('deliveryPartnerId')) {
+      updateData.assignedDeliveryPartner = deliveryPartnerId || null;
+    }
+
     const updatedOrder = await Order.findByIdAndUpdate(
       req.params.id,
-      { status },
+      updateData,
       { new: true }
     );
     if (!updatedOrder) {
