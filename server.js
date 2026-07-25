@@ -17,7 +17,9 @@ const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-admin-panel';
 let isAutoUpdateEnabled = true;
 
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'https://food-order-tracking.vercel.app']
+}));
 app.use(express.json());
 
 // User authentication routes
