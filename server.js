@@ -29,10 +29,36 @@ const io = new Server(httpServer, {
 
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
+
+  socket.on('join', (roomNameOrUserId) => {
+    socket.join(roomNameOrUserId);
+    console.log(`Socket ${socket.id} joined room: ${roomNameOrUserId}`);
+  });
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
   });
 });
+
+// Hook into Order schema's save method to emit status updates
+const originalSave = Order.prototype.save;
+Order.prototype.save = async function (...args) {
+  const isStatusModified = this.isModified('status');
+  const result = await originalSave.apply(this, args);
+
+  if (isStatusModified) {
+    const orderId = this._id;
+    const newStatus = this.status;
+    const userId = this.userId;
+
+    if (userId) {
+      io.to(userId.toString()).emit('orderStatusUpdated', { orderId, newStatus });
+    }
+    io.to('admin').emit('orderStatusUpdated', { orderId, newStatus });
+    console.log(`Socket.io emitted orderStatusUpdated: orderId=${orderId}, newStatus=${newStatus}`);
+  }
+  return result;
+};
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://food-order-tracking.vercel.app']
@@ -239,21 +265,19 @@ app.put('/api/orders/:id/status', authenticateToken, async (req, res, next) => {
       return next(error);
     }
 
-    const updateData = { status };
-    if (status === 'Out for Delivery' && req.body.hasOwnProperty('deliveryPartnerId')) {
-      updateData.assignedDeliveryPartner = deliveryPartnerId || null;
-    }
-
-    const updatedOrder = await Order.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    );
-    if (!updatedOrder) {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
       const error = new Error('Order not found');
       error.status = 404;
       return next(error);
     }
+
+    order.status = status;
+    if (status === 'Out for Delivery' && req.body.hasOwnProperty('deliveryPartnerId')) {
+      order.assignedDeliveryPartner = deliveryPartnerId || null;
+    }
+
+    const updatedOrder = await order.save();
     res.json(updatedOrder);
   } catch (err) {
     next(err);
