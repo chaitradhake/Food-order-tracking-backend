@@ -17,6 +17,23 @@ const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-admin-panel';
 let isAutoUpdateEnabled = true;
 
+const http = require('http');
+const { Server } = require('socket.io');
+
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: ['http://localhost:5173', 'https://food-order-tracking.vercel.app']
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log(`Client connected: ${socket.id}`);
+  socket.on('disconnect', () => {
+    console.log(`Client disconnected: ${socket.id}`);
+  });
+});
+
 app.use(cors({
   origin: ['http://localhost:5173', 'https://food-order-tracking.vercel.app']
 }));
@@ -275,6 +292,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
